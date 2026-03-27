@@ -1,0 +1,137 @@
+// CRBOberonDSP.h
+#pragma once
+#include <JuceHeader.h>
+
+const double PI = 3.141592653589793;
+
+class OberonVCO {
+public:
+    OberonVCO() = default;
+    void prepare(double sr) { sampleRate = sr; }
+    void setFreq(double f) { freq = juce::jlimit(20.0, 20000.0, f); }
+    void setPW(double p) { pw = juce::jlimit(0.01, 0.99, p); }
+    
+    double process() {
+        phase += 2.0 * PI * freq / sampleRate;
+        if (phase >= 2.0 * PI) phase -= 2.0 * PI;
+        double saw = (phase / (2.0 * PI)) * 2.0 - 1.0;
+        double sq = (phase < pw * 2.0 * PI) ? 1.0 : -1.0;
+        double tri = 4.0 * std::fabs(saw) - 1.0;
+        return (saw * 0.42 + sq * 0.29 + tri * 0.29) * 0.96;
+    }
+private:
+    double phase = 0.0, freq = 440.0, pw = 0.5, sampleRate = 44100.0;
+};
+
+class OberonFilterLadder {
+public:
+    OberonFilterLadder() { updateCoeffs(); }
+    void prepare(double sr) { sampleRate = sr; updateCoeffs(); }
+    void setCutoff(double c) { cutoff = juce::jlimit(30.0, 18000.0, c); updateCoeffs(); }
+    void setRes(double r) { res = juce::jlimit(0.0, 20.0, r); }
+    void setMode(int m) { mode = m % 3; }
+    
+    double process(double input) {
+        stage1 += alpha * (input - stage1);
+        stage2 += alpha * (stage1 - stage2);
+        stage3 += alpha * (stage2 - stage3);
+        stage4 += alpha * (stage3 - stage4);
+        
+        double lp = stage4;
+        double hp = input - (stage1 + stage2 + stage3 + stage4) * 0.25;
+        double allpass = lp + hp;
+        
+        double feedback = res * lp * 0.85;
+        
+        switch (mode) {
+            case 0: return lp - feedback;           // LP
+            case 1: return hp - feedback * 0.65;    // HP
+            case 2: return allpass * (1.0 - res * 0.35); // All-Pass
+            default: return lp;
+        }
+    }
+private:
+    double stage1=0, stage2=0, stage3=0, stage4=0;
+    double cutoff=1400.0, res=2.8, alpha=0.0;
+    int mode=0;
+    double sampleRate=44100.0;
+    
+    void updateCoeffs() {
+        double wc = 2.0 * PI * cutoff / sampleRate;
+        alpha = wc / (1.2 + wc * 0.55);
+    }
+};
+
+class SoftLimiter {  // amsynth exact log/exp VCA
+public:
+    double process(double x, double preamp = 1.0) {
+        x *= preamp;
+        if (x > xpeak) xpeak = 0.99 * xpeak + 0.01 * x;
+        else xpeak = 0.998 * xpeak;
+        
+        double gain = 1.0;
+        if (xpeak > 1e-8) {
+            double val = std::log(xpeak) - std::log(0.9);
+            if (val > 0.0) gain = std::exp(-val * 0.75);
+        }
+        return juce::jlimit(-1.0, 1.0, x * gain);
+    }
+private:
+    double xpeak = 0.0;
+};
+
+class CRBOberonDSP {
+public:
+    void prepare(double sr) {
+        vco1.prepare(sr); vco2.prepare(sr); vco3.prepare(sr);
+        filter.prepare(sr);
+        sampleRate = sr;
+    }
+    
+    void noteOn(double freqHz, float vel = 1.0f) {
+        vco1.setFreq(freqHz);
+        vco2.setFreq(freqHz * 1.005);
+        vco3.setFreq(freqHz * 2.01);
+        envLevel = vel; envStage = 1; envTime = 0.0;
+    }
+    
+    void noteOff() { envStage = 4; envTime = 0.0; }
+    
+    float process() {
+        double o1 = vco1.process();
+        double o2 = vco2.process();
+        double am = (vco3.process() + 1.0) * 0.5;
+        double mix = (o1 + o2 * am) * 0.5;
+        
+        double filtered = filter.process(mix);
+        updateEnvelope();
+        return limiter.process(filtered * envLevel, preamp);
+    }
+    
+    void setPreamp(float p) { preamp = juce::jlimit(0.2f, 6.0f, p); }
+    void setFilterCutoff(float c) { filter.setCutoff(c); }
+    void setFilterRes(float r) { filter.setRes(r); }
+    void setFilterMode(int m) { filter.setMode(m); }
+    
+private:
+    OberonVCO vco1, vco2, vco3;
+    OberonFilterLadder filter;
+    SoftLimiter limiter;
+    float preamp = 1.8f;
+    
+    int envStage = 0;
+    float envLevel = 0.0f, envTime = 0.0f;
+    float attack = 0.008f, decay = 0.22f, sustain = 0.68f, release = 0.75f;
+    double sampleRate = 44100.0;
+    
+    void updateEnvelope() {
+        float dt = 1.0f / sampleRate;
+        envTime += dt;
+        switch (envStage) {
+            case 1: envLevel = std::min(1.0f, envTime / attack); if (envLevel >= 1.0f) { envStage = 2; envTime = 0.0f; } break;
+            case 2: envLevel = 1.0f - (1.0f - sustain) * (envTime / decay); if (envLevel <= sustain) { envStage = 3; } break;
+            case 3: envLevel = sustain; break;
+            case 4: envLevel = sustain * std::max(0.0f, 1.0f - envTime / release); if (envLevel <= 0.01f) envLevel = 0.0f, envStage = 0; break;
+        }
+    }
+};

@@ -1,0 +1,23 @@
+void ARPoberon2608AudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi)
+{
+    juce::ScopedNoDenormals noDenormals;
+    
+    // Basic MIDI note handling (expand for poly if desired)
+    for (const auto meta : midi) {
+        auto msg = meta.getMessage();
+        if (msg.isNoteOn()) oberonDSP.noteOn(juce::MidiMessage::getMidiNoteInHertz(msg.getNoteNumber()));
+        if (msg.isNoteOff()) oberonDSP.noteOff();
+    }
+    
+    float preamp = *apvts.getRawParameterValue("preamp");
+    oberonDSP.setPreamp(preamp);
+    
+    auto* outL = buffer.getWritePointer(0);
+    for (int i = 0; i < buffer.getNumSamples(); ++i) {
+        outL[i] = oberonDSP.process();
+    }
+    
+    // Copy to right channel for stereo
+    if (buffer.getNumChannels() > 1)
+        buffer.copyFrom(1, 0, buffer, 0, 0, buffer.getNumSamples());
+}

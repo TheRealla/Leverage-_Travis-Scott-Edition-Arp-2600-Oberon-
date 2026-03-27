@@ -1,0 +1,23 @@
+{
+  "title": "ARP-OBERON 2608 Psychological Parameter Map",
+  "description": "How each control feels emotionally and affects mix 'hug' factor in AM sessions",
+  "sections": {
+    "ARP_Left": {
+      "VCO1-3_Range": { "type": "float", "range": "0.03Hz–20kHz", "psychology": "Grounding / Exploration — low = meditative bass hug, high = sparkling inspiration" },
+      "VCF_Resonance": { "type": "float", "range": "0–1", "psychology": "Emotional tension builder — higher = vocal-like 'cry' that sits forward yet blends" },
+      "Mic_Preamp": { "type": "float", "range": "0–1", "psychology": "Intimacy switch — makes your voice or any input feel personally hugged by the instruments" }
+    },
+    "Oberon_Right": {
+      "Special_Osc_Drift": { "type": "float", "range": "0–1", "psychology": "Human warmth — subtle movement creates living, breathing pads that emotionally connect" },
+      "2Pole_Dual_Filter": { "type": "float", "range": "0–1", "psychology": "Velvet glue — thick resonance makes chords hug drums/bass without fighting; 96kHz mode = pure morning magic" },
+      "Envelope_Curves": { "type": "enum", "options": ["Snappy","Lush"], "psychology": "Tempo of emotion — snappy = excitement, lush = calm reflective flow" }
+    },
+    "Shared_Secrets_Bottom": {
+      "Preamp_Gain": { "type": "AudioParameterFloat", "range": "0.0–1.0", "psychology": "Drive into soul — higher = vocals/instruments start to 'embrace' each other in the mix" },
+      "Log_Limiter_Thresh": { "type": "float", "range": "0–1", "psychology": "Hidden analog hug — log/exp curve creates smooth, console-style compression that feels safe and musical" },
+      "Tape_Glue_Amount": { "type": "float", "range": "0–1", "psychology": "Emotional bonding agent — adds harmonic warmth so everything sits perfectly in the track" },
+      "Red_Secret_Button": { "type": "bool", "psychology": "Moment of revelation — engages full chain; instant 'this is why I make music in the AM' feeling" }
+    }
+  },
+  "global_psychology": "The entire instrument is tuned so that increasing any 'secret' parameter makes the sound feel more intimate, more alive, and perfectly placed in a mix — vocals and instruments literally 'hug' each other with warm analog glue."
+}

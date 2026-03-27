@@ -3,6 +3,8 @@
 #include <JuceHeader.h>
 #include "PluginProcessor.h"
 
+class OberonLookAndFeel : public juce::LookAndFeel_V4;
+
 class ARPoberon2608AudioProcessorEditor : public juce::AudioProcessorEditor,
                                           public juce::Slider::Listener,
                                           public juce::Button::Listener
@@ -14,31 +16,27 @@ public:
     void paint(juce::Graphics&) override;
     void resized() override;
 
-    void sliderValueChanged(juce::Slider* slider) override;
-    void buttonClicked(juce::Button* button) override;
+    void sliderValueChanged(juce::Slider*) override;
+    void buttonClicked(juce::Button*) override;
 
 private:
     ARPoberon2608AudioProcessor& processor;
 
-    // Background and styling
-    juce::Image woodBackground;
+    std::unique_ptr<OberonLookAndFeel> lookAndFeel;
 
-    // Left ARP Section (VCOs, VCF, ENV, Patch points)
-    juce::Slider vco1Freq, vco1Level, vco2Freq, vco2Level, vco3Freq, vco3Level;
+    // Title
+    juce::Label titleLabel;
+
+    // Bottom MASTER
+    juce::Slider preampSlider, softLimiterSlider, tapeSatSlider;
+    juce::TextButton driveButton;
+
+    // Oberon Filter Ladder
     juce::Slider filterCutoff, filterRes;
     juce::ComboBox filterMode;
 
-    // Right Oberon Section
-    juce::Slider oscAPitch, oscBSpread, oscAShape;
-    juce::Slider filter2Cutoff, filter2Res, filter2Drive;
-
-    // Bottom MASTER Section (matches image)
-    juce::Slider preampSlider, softLimiterSlider, tapeSatSlider;
-    juce::TextButton driveButton;           // Glowing red DRIVE button
-    juce::Slider vuMeter;                   // Simulated VU
-
-    juce::Label titleLabel;
-
-    void updateParametersFromUI();
-    void styleKnob(juce::Slider& slider, juce::Colour colour);
+    // Attachments
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> preampAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> cutoffAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> resAttachment;
 };

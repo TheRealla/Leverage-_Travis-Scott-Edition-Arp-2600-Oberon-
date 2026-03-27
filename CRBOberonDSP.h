@@ -1,8 +1,11 @@
 // CRBOberonDSP.h
 #pragma once
 #include <JuceHeader.h>
+#include <vector>
 
-const double PI = 3.141592653589793;
+// ===================================================================
+// ARP 2600 LEFT SIDE - Semi-modular with Patch Bay + Rectifier
+// ===================================================================
 
 class OberonVCO {
 public:
@@ -12,16 +15,37 @@ public:
     void setPW(double p) { pw = juce::jlimit(0.01, 0.99, p); }
     
     double process() {
-        phase += 2.0 * PI * freq / sampleRate;
-        if (phase >= 2.0 * PI) phase -= 2.0 * PI;
-        double saw = (phase / (2.0 * PI)) * 2.0 - 1.0;
-        double sq = (phase < pw * 2.0 * PI) ? 1.0 : -1.0;
+        phase += 2.0 * juce::MathConstants<double>::twoPi * freq / sampleRate;
+        if (phase >= juce::MathConstants<double>::twoPi) phase -= juce::MathConstants<double>::twoPi;
+        
+        double saw = (phase / juce::MathConstants<double>::twoPi) * 2.0 - 1.0;
+        double sq = (phase < pw * juce::MathConstants<double>::twoPi) ? 1.0 : -1.0;
         double tri = 4.0 * std::fabs(saw) - 1.0;
-        return (saw * 0.42 + sq * 0.29 + tri * 0.29) * 0.96;
+        
+        return (saw * 0.42 + sq * 0.29 + tri * 0.29) * 0.96; // Italian warmth
     }
 private:
-    double phase = 0.0, freq = 440.0, pw = 0.5, sampleRate = 44100.0;
+    double phase = 0.0, freq = 440.0, pw = 0.5;
+    double sampleRate = 44100.0;
 };
+
+class ARP2600Rectifier {  // Classic ARP 2600 Envelope Follower / Audio Rectifier
+public:
+    void prepare(double sr) { sampleRate = sr; }
+    double process(double input) {
+        double rect = std::fabs(input);
+        smoothed = smoothed * 0.96 + rect * 0.04;  // Musical smoothing
+        return smoothed;
+    }
+    double getCV() const { return smoothed; }
+private:
+    double smoothed = 0.0;
+    double sampleRate = 44100.0;
+};
+
+// ===================================================================
+// OBERON RIGHT SIDE - Historical CRB Oberon Core
+// ===================================================================
 
 class OberonFilterLadder {
 public:
@@ -44,9 +68,9 @@ public:
         double feedback = res * lp * 0.85;
         
         switch (mode) {
-            case 0: return lp - feedback;           // LP
-            case 1: return hp - feedback * 0.65;    // HP
-            case 2: return allpass * (1.0 - res * 0.35); // All-Pass
+            case 0: return lp - feedback;                    // Low-Pass
+            case 1: return hp - feedback * 0.65;             // High-Pass
+            case 2: return allpass * (1.0 - res * 0.35);     // All-Pass (unique third mode)
             default: return lp;
         }
     }
@@ -57,12 +81,12 @@ private:
     double sampleRate=44100.0;
     
     void updateCoeffs() {
-        double wc = 2.0 * PI * cutoff / sampleRate;
+        double wc = 2.0 * juce::MathConstants<double>::twoPi * cutoff / sampleRate;
         alpha = wc / (1.2 + wc * 0.55);
     }
 };
 
-class SoftLimiter {  // amsynth exact log/exp VCA
+class SoftLimiter {  // Exact amsynth hidden log/exp VCA-style limiter
 public:
     double process(double x, double preamp = 1.0) {
         x *= preamp;
@@ -80,58 +104,67 @@ private:
     double xpeak = 0.0;
 };
 
-class CRBOberonDSP {
+// ===================================================================
+// MAIN DSP CLASS WITH PATCH BAY
+// ===================================================================
+
+class CRBOberonDSP
+{
 public:
-    void prepare(double sr) {
-        vco1.prepare(sr); vco2.prepare(sr); vco3.prepare(sr);
-        filter.prepare(sr);
-        sampleRate = sr;
-    }
-    
-    void noteOn(double freqHz, float vel = 1.0f) {
-        vco1.setFreq(freqHz);
-        vco2.setFreq(freqHz * 1.005);
-        vco3.setFreq(freqHz * 2.01);
-        envLevel = vel; envStage = 1; envTime = 0.0;
-    }
-    
-    void noteOff() { envStage = 4; envTime = 0.0; }
-    
-    float process() {
-        double o1 = vco1.process();
-        double o2 = vco2.process();
-        double am = (vco3.process() + 1.0) * 0.5;
-        double mix = (o1 + o2 * am) * 0.5;
-        
-        double filtered = filter.process(mix);
-        updateEnvelope();
-        return limiter.process(filtered * envLevel, preamp);
-    }
-    
-    void setPreamp(float p) { preamp = juce::jlimit(0.2f, 6.0f, p); }
-    void setFilterCutoff(float c) { filter.setCutoff(c); }
-    void setFilterRes(float r) { filter.setRes(r); }
-    void setFilterMode(int m) { filter.setMode(m); }
-    
+    enum PatchSource {
+        None,
+        RectifierCV,
+        Noise,
+        Env1,
+        VCO3
+    };
+
+    CRBOberonDSP() = default;
+
+    void prepare(double sampleRate);
+
+    void noteOn(double freqHz, float velocity = 1.0f);
+    void noteOff();
+
+    float process();   // Main audio callback
+
+    // Parameter setters
+    void setPreamp(float value);
+    void setFilterCutoff(float value);
+    void setFilterRes(float value);
+    void setFilterMode(int mode);
+    void setRectifierEnabled(bool enabled);
+
+    // Patch Bay routing
+    void setFilterCutoffModSource(PatchSource source);
+    void setAMDepthModSource(PatchSource source);
+
 private:
+    // Oscillators
     OberonVCO vco1, vco2, vco3;
+
+    // Oberon Filter Ladder
     OberonFilterLadder filter;
+
+    // ARP 2600 Rectifier (Left side)
+    ARP2600Rectifier rectifier;
+    bool rectifierEnabled = false;
+
+    // amsynth Soft Limiter (VCA glue)
     SoftLimiter limiter;
     float preamp = 1.8f;
-    
+
+    // Patch Bay state
+    PatchSource filterCutoffMod = PatchSource::None;
+    PatchSource amDepthMod = PatchSource::None;
+
+    // Envelope
     int envStage = 0;
     float envLevel = 0.0f, envTime = 0.0f;
     float attack = 0.008f, decay = 0.22f, sustain = 0.68f, release = 0.75f;
+
     double sampleRate = 44100.0;
-    
-    void updateEnvelope() {
-        float dt = 1.0f / sampleRate;
-        envTime += dt;
-        switch (envStage) {
-            case 1: envLevel = std::min(1.0f, envTime / attack); if (envLevel >= 1.0f) { envStage = 2; envTime = 0.0f; } break;
-            case 2: envLevel = 1.0f - (1.0f - sustain) * (envTime / decay); if (envLevel <= sustain) { envStage = 3; } break;
-            case 3: envLevel = sustain; break;
-            case 4: envLevel = sustain * std::max(0.0f, 1.0f - envTime / release); if (envLevel <= 0.01f) envLevel = 0.0f, envStage = 0; break;
-        }
-    }
+
+    void updateEnvelope();
+    double getModulationValue(PatchSource source);
 };

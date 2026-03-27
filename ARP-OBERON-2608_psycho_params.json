@@ -1,23 +1,69 @@
 {
   "title": "ARP-OBERON 2608 Psychological Parameter Map",
-  "description": "How each control feels emotionally and affects mix 'hug' factor in AM sessions",
+  "description": "Emotional and mix-hug mapping for the hybrid instrument. Left side honors ARP 2600 semi-modular patching. Right side centers the rare 1979 CRB Elettronica Oberon (triple-oscillator monophonic core with dedicated AM harmonic generator and Oberon Filter Ladder). Bottom MASTER section delivers the hidden amsynth log/exp VCA-style glue. Designed for intimate, inspiring AM (morning) sessions where powerful Italian analog tones sit warmly and 'hug' the instruments and vocals in the mix.",
+  "global_psychology": "The instrument feels like playing the restored museum Oberon: dense, quirky, powerful Italian sound with ARP flexibility. Increasing PREAMP/DRIVE or engaging the red DRIVE button creates that magical 'everything suddenly sits perfectly' moment. The Oberon Filter Ladder gives snappy, dramatic resonance that can drop volume or self-oscillate musically — evoking the historical unit's unique character.",
+  
   "sections": {
-    "ARP_Left": {
-      "VCO1-3_Range": { "type": "float", "range": "0.03Hz–20kHz", "psychology": "Grounding / Exploration — low = meditative bass hug, high = sparkling inspiration" },
-      "VCF_Resonance": { "type": "float", "range": "0–1", "psychology": "Emotional tension builder — higher = vocal-like 'cry' that sits forward yet blends" },
-      "Mic_Preamp": { "type": "float", "range": "0–1", "psychology": "Intimacy switch — makes your voice or any input feel personally hugged by the instruments" }
+    "Left_ARP_Section": {
+      "VCO_1_2_3": {
+        "description": "VCO 1 / VCO 2 / VCO 3 (Freq, Saw, Square, Sine, Pulse/PWM, Level)",
+        "psychology": "Foundation & exploration. Low frequencies ground the sound; subtle detune and waveform mixing create living, breathing textures that feel historically authentic and emotionally warm."
+      },
+      "VCF_24dB_LPF": {
+        "description": "24dB LPF with Cutoff, Resonance, Key Track, Env, VCO Mod",
+        "psychology": "Emotional shaping. Higher resonance adds singing quality and tension; patching modulation here makes tones evolve naturally, helping the sound 'hug' the rhythm section."
+      },
+      "ENV_1": {
+        "description": "ENV 1 (Attack, Decay, Sustain, Release)",
+        "psychology": "Tempo of feeling. Snappy settings = excitement and bite; longer envelopes = lush, reflective morning pads that blend effortlessly."
+      },
+      "NOISE_GEN_S_H": {
+        "description": "Noise Gen (White/Pink), Sample & Hold (Rate)",
+        "psychology": "Unpredictable life. Adds organic movement and subtle chaos — perfect for creating evolving textures that feel alive and sit naturally in a mix."
+      }
     },
-    "Oberon_Right": {
-      "Special_Osc_Drift": { "type": "float", "range": "0–1", "psychology": "Human warmth — subtle movement creates living, breathing pads that emotionally connect" },
-      "2Pole_Dual_Filter": { "type": "float", "range": "0–1", "psychology": "Velvet glue — thick resonance makes chords hug drums/bass without fighting; 96kHz mode = pure morning magic" },
-      "Envelope_Curves": { "type": "enum", "options": ["Snappy","Lush"], "psychology": "Tempo of emotion — snappy = excitement, lush = calm reflective flow" }
+
+    "Right_Oberon_Core": {
+      "OSCILLATOR_A_B": {
+        "description": "Oscillator A & B (Pitch, Shape, Detune, Spread, Sub)",
+        "psychology": "The heart of the real CRB Oberon. Triple-oscillator architecture with dedicated AM from the third oscillator fattens leads and basses, creating huge yet intimate Italian analog power."
+      },
+      "FILTER_2_Oberon_Ladder": {
+        "description": "Filter 2 (Cutoff, Resonance, Drive, Mode: LP / HP / BP / All-Pass, Routing, Serial/Parallel, Knobs)",
+        "psychology": "Dramatic Italian character. The 4-stage Oberon Filter Ladder delivers snappy resonance and can drop volume dramatically at high settings — the signature 'quirky yet musical' behavior of the museum unit. All-Pass mode adds unique phasing and depth."
+      },
+      "ADSR_ENVELOPE": {
+        "description": "ADSR Envelope (Attack, Decay, Sustain, Release)",
+        "psychology": "Emotional timing. Controls how the powerful Oberon tone breathes — short for plucky leads, long for velvet pads that emotionally connect with the listener."
+      }
     },
-    "Shared_Secrets_Bottom": {
-      "Preamp_Gain": { "type": "AudioParameterFloat", "range": "0.0–1.0", "psychology": "Drive into soul — higher = vocals/instruments start to 'embrace' each other in the mix" },
-      "Log_Limiter_Thresh": { "type": "float", "range": "0–1", "psychology": "Hidden analog hug — log/exp curve creates smooth, console-style compression that feels safe and musical" },
-      "Tape_Glue_Amount": { "type": "float", "range": "0–1", "psychology": "Emotional bonding agent — adds harmonic warmth so everything sits perfectly in the track" },
-      "Red_Secret_Button": { "type": "bool", "psychology": "Moment of revelation — engages full chain; instant 'this is why I make music in the AM' feeling" }
+
+    "Bottom_MASTER_Secrets": {
+      "PREAMP_DRIVE": {
+        "type": "AudioParameterFloat",
+        "range": "0.2 – 6.0",
+        "psychology": "Drive into soul. Pushes the triple-oscillator Oberon signal harder into the limiter and tape stages, creating warmth and density that makes vocals and instruments feel intimately hugged."
+      },
+      "SOFT_LIMITER": {
+        "description": "Soft Limiter (amsynth hidden log/exp curve)",
+        "psychology": "Hidden VCA-style analog hug. The exact logarithmic soft-knee compression tames transients musically, giving console-like glue without harshness — the secret that makes everything sit perfectly in the mix."
+      },
+      "TAPE_SATURATION": {
+        "description": "Tape Saturation",
+        "psychology": "Emotional bonding agent. Adds harmonic warmth, gentle compression, and classic reel-to-reel sheen so the ARP modulation + Oberon power blends beautifully with drums, bass, and guitars."
+      },
+      "RED_DRIVE_BUTTON": {
+        "type": "bool",
+        "label": "DRIVE (glowing red)",
+        "psychology": "Moment of revelation. Engaging the full secret chain (Preamp + Log Limiter + Tape) instantly transforms the sound into that 'this is why I make music in the AM' feeling — powerful yet perfectly placed."
+      }
     }
   },
-  "global_psychology": "The entire instrument is tuned so that increasing any 'secret' parameter makes the sound feel more intimate, more alive, and perfectly placed in a mix — vocals and instruments literally 'hug' each other with warm analog glue."
+
+  "recommended_presets": {
+    "Morning_Vocal_Hug": "Moderate Preamp (2.2), LP mode on Filter Ladder with medium resonance (4.5), subtle AM Depth, Tape Saturation engaged — vocals sit forward yet warmly blended.",
+    "Italian_Lead_Power": "High Preamp (3.8), Filter Mode HP or All-Pass, high resonance for dramatic character, red DRIVE button on.",
+    "Velvet_Pad_Glue": "Low Preamp (1.5), long ADSR envelopes, All-Pass mode, Tape Saturation high — lush pads that emotionally hug the entire track.",
+    "ARP_Experiment": "Heavy patching from left ARP section into Oberon AM and Filter Ladder, Secret Drive engaged for chaotic yet musical results."
+  }
 }

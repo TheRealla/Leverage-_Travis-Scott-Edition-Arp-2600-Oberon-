@@ -56,9 +56,14 @@
         "type": "bool",
         "label": "DRIVE (glowing red)",
         "psychology": "Moment of revelation. Engaging the full secret chain (Preamp + Log Limiter + Tape) instantly transforms the sound into that 'this is why I make music in the AM' feeling — powerful yet perfectly placed."
-      }
+      },
     }
   },
+  "Left_ARP_Rectifier": {
+  "description": "ARP 2600 Rectifier / Envelope Follower (diode full-wave + smoothing)",
+  "psychology": "Converts audio into expressive CV. When enabled (via red DRIVE button), it dynamically modulates the Oberon Filter Ladder — making vocals or any input 'hug' the synth tones with living, breathing movement. Classic ARP 2600 magic for intimate morning sessions."
+  }
+}
 
   "recommended_presets": {
     "Morning_Vocal_Hug": "Moderate Preamp (2.2), LP mode on Filter Ladder with medium resonance (4.5), subtle AM Depth, Tape Saturation engaged — vocals sit forward yet warmly blended.",

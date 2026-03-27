@@ -16,21 +16,29 @@ ARPoberon2608AudioProcessor::createParameterLayout()
 {
     juce::AudioProcessorValueTreeState::ParameterLayout layout;
 
-    // Bottom MASTER section from the image
+    // Bottom MASTER section (matches your GUI image)
     layout.add (std::make_unique<juce::AudioParameterFloat> ("preamp", "PREAMP/DRIVE",
         juce::NormalisableRange<float> (0.2f, 6.0f, 0.01f), 1.8f));
 
-    // Oberon Filter Ladder
+    // Oberon Filter Ladder parameters
     layout.add (std::make_unique<juce::AudioParameterFloat> ("filter_cutoff", "Cutoff",
         juce::NormalisableRange<float> (30.0f, 18000.0f, 1.0f), 1400.0f));
 
     layout.add (std::make_unique<juce::AudioParameterFloat> ("filter_res", "Resonance",
         juce::NormalisableRange<float> (0.0f, 20.0f, 0.01f), 4.5f));
 
-    layout.add (std::make_unique<juce::AudioParameterInt> ("filter_mode", "Filter Mode", 0, 2, 0)); // 0=LP, 1=HP, 2=All-Pass
+    layout.add (std::make_unique<juce::AudioParameterInt> ("filter_mode", "Filter Mode", 
+        0, 2, 0)); // 0 = LP, 1 = HP, 2 = All-Pass
 
-    // Red DRIVE button
+    // Red DRIVE button (engages full secret chain + rectifier modulation)
     layout.add (std::make_unique<juce::AudioParameterBool> ("secret_drive", "DRIVE", false));
+
+    // Patch Bay parameters (simple for now - can be expanded)
+    layout.add (std::make_unique<juce::AudioParameterInt> ("patch_filter_cutoff", "Patch to Filter Cutoff", 
+        0, 4, 0)); // 0=None, 1=Rectifier, 2=Noise, 3=Env1, 4=VCO3
+
+    layout.add (std::make_unique<juce::AudioParameterInt> ("patch_am_depth", "Patch to AM Depth", 
+        0, 4, 0));
 
     return layout;
 }
@@ -44,7 +52,7 @@ void ARPoberon2608AudioProcessor::processBlock (juce::AudioBuffer<float>& buffer
 {
     juce::ScopedNoDenormals noDenormals;
 
-    // Handle MIDI notes (basic monophonic for now)
+    // === MIDI Note Handling (monophonic for historical Oberon character) ===
     for (const auto metadata : midiMessages)
     {
         auto msg = metadata.getMessage();
@@ -54,58 +62,12 @@ void ARPoberon2608AudioProcessor::processBlock (juce::AudioBuffer<float>& buffer
             oberonDSP.noteOff();
     }
 
-    // Get current parameters
-    float preampValue = *apvts.getRawParameterValue ("preamp");
-    oberonDSP.setPreamp (preampValue);
+    // === Read Parameters from GUI ===
+    float preampValue       = *apvts.getRawParameterValue ("preamp");
+    float filterCutoffValue = *apvts.getRawParameterValue ("filter_cutoff");
+    float filterResValue    = *apvts.getRawParameterValue ("filter_res");
+    int   filterModeValue   = *apvts.getRawParameterValue ("filter_mode");
+    bool  secretDrive       = *apvts.getRawParameterValue ("secret_drive");
 
-    // Process audio (mono for Oberon character, then duplicate to stereo)
-    auto* leftChannel = buffer.getWritePointer (0);
-    for (int i = 0; i < buffer.getNumSamples(); ++i)
-    {
-        leftChannel[i] = oberonDSP.process();
-    }
-
-    // Copy to right channel
-    if (buffer.getNumChannels() > 1)
-        buffer.copyFrom (1, 0, buffer, 0, 0, buffer.getNumSamples());
-}
-
-juce::AudioProcessorEditor* ARPoberon2608AudioProcessor::createEditor()
-{
-    return new ARPoberon2608AudioProcessorEditor (*this);
-}
-
-bool ARPoberon2608AudioProcessor::hasEditor() const { return true; }
-
-const juce::String ARPoberon2608AudioProcessor::getName() const { return "ARP-OBERON 2608"; }
-
-bool ARPoberon2608AudioProcessor::acceptsMidi() const { return true; }
-bool ARPoberon2608AudioProcessor::producesMidi() const { return false; }
-bool ARPoberon2608AudioProcessor::isMidiEffect() const { return false; }
-double ARPoberon2608AudioProcessor::getTailLengthSeconds() const { return 0.0; }
-
-int ARPoberon2608AudioProcessor::getNumPrograms() { return 1; }
-int ARPoberon2608AudioProcessor::getCurrentProgram() { return 0; }
-void ARPoberon2608AudioProcessor::setCurrentProgram (int) {}
-const juce::String ARPoberon2608AudioProcessor::getProgramName (int) { return {}; }
-void ARPoberon2608AudioProcessor::changeProgramName (int, const juce::String&) {}
-
-void ARPoberon2608AudioProcessor::getStateInformation (juce::MemoryBlock& destData)
-{
-    auto state = apvts.copyState();
-    std::unique_ptr<juce::XmlElement> xml (state.createXml());
-    copyXmlToBinary (*xml, destData);
-}
-
-void ARPoberon2608AudioProcessor::setStateInformation (const void* data, int sizeInBytes)
-{
-    std::unique_ptr<juce::XmlElement> xmlState (getXmlFromBinary (data, sizeInBytes));
-    if (xmlState.get() != nullptr)
-        apvts.replaceState (juce::ValueTree::fromXml (*xmlState));
-}
-
-// This creates the processor instance
-juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
-{
-    return new ARPoberon2608AudioProcessor();
-}
+    int patchFilterCutoff   = *apvts.getRawParameterValue ("patch_filter_cutoff");
+    int patchAMDepth        = *apv

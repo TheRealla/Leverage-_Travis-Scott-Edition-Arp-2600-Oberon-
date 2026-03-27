@@ -1,6 +1,6 @@
 // CRB Oberon Emulation - Historical 1979 CRB Elettronica Oberon
 // Triple oscillators (2 main + 1 dedicated AM/harmonic generator)
-// Oberon Filter Ladder: 4-stage ladder-style core with switchable LP / HP / All-Pass modes
+// Oberon Filter Ladder: 4-stage Moog-style ladder core with switchable LP / HP / All-Pass modes
 // Dense Italian circuit character (opamp integration, diode asymmetry, RC warmth)
 // + amsynth hidden log/exp Soft Limiter + Preamp for warm console "glue"
 // Monophonic focus, ready for ARP-OBERON 2608 hybrid patching
@@ -35,33 +35,32 @@ private:
     double phase, freq, pw;
 };
 
-class OberonFilterLadder {  // 4-stage ladder-style core (hypothesized from dense 1979 Italian topology)
+class OberonFilterLadder {  // 4-stage Moog-style ladder core (as described for Oberon)
 public:
-    OberonFilterLadder() : cutoff(1200.0), res(1.2), mode(0) { updateCoeffs(); }  // mode 0=LP, 1=HP, 2=All-Pass
+    OberonFilterLadder() : cutoff(1400.0), res(1.5), mode(0) { updateCoeffs(); }  // 0=LP, 1=HP, 2=All-Pass
     
     void setCutoff(double c) { cutoff = std::max(30.0, std::min(18000.0, c)); updateCoeffs(); }
-    void setRes(double r) { res = std::max(0.0, std::min(18.0, r)); updateCoeffs(); }
+    void setRes(double r) { res = std::max(0.0, std::min(20.0, r)); }  // High res → dramatic volume drop / self-osc
     void setMode(int m) { mode = m % 3; }
     
     double process(double input) {
-        // 4-stage ladder simulation (cascaded integrators with feedback)
-        // Stage 1-4 with resonance feedback (classic ladder behavior)
+        // 4-stage ladder (cascaded integrators with global resonance feedback)
         stage1 = stage1 + alpha * (input - stage1);
         stage2 = stage2 + alpha * (stage1 - stage2);
         stage3 = stage3 + alpha * (stage2 - stage3);
         stage4 = stage4 + alpha * (stage3 - stage4);
         
-        double lp = stage4;                    // 24dB/oct low-pass core
-        double hp = input - (stage1 + stage2 + stage3 + stage4) * 0.25;  // derived high-pass
-        double allpass = lp + hp;              // All-Pass / notch-like (unique third mode)
+        double lp = stage4;                                      // 24 dB/oct low-pass core (snappy Moog-like)
+        double hp = input - (stage1 + stage2 + stage3 + stage4) * 0.25;  // Derived high-pass
+        double allpass = lp + hp;                                // All-Pass / third filter type (quirky coloring)
         
-        // Resonance feedback (high res can self-oscillate or drop volume dramatically - as described)
-        double feedback = res * lp;
+        // Resonance feedback (high values reduce volume dramatically - historical behavior)
+        double feedback = res * lp * 0.85;
         
         switch (mode) {
-            case 0: return lp - feedback;                    // Low-Pass (main subtractive, musical resonance)
-            case 1: return hp - feedback * 0.7;              // High-Pass
-            case 2: return allpass * (1.0 - res * 0.3);      // All-Pass / third filter type (quirky coloring)
+            case 0: return lp - feedback;                        // Low-Pass (main subtractive, musical resonance)
+            case 1: return hp - feedback * 0.65;                 // High-Pass
+            case 2: return allpass * (1.0 - res * 0.35);         // All-Pass / third mode (unique Italian feature)
             default: return lp;
         }
     }
@@ -72,7 +71,7 @@ private:
     
     void updateCoeffs() {
         double wc = 2.0 * PI * cutoff / SAMPLE_RATE;
-        alpha = wc / (1.0 + wc * 0.6);  // Tuned for ladder stability + 70s opamp feel
+        alpha = wc / (1.2 + wc * 0.55);  // Tuned for ladder stability + 1970s opamp/RC feel
     }
 };
 
@@ -103,7 +102,7 @@ public:
         vco2.setFreq(440.0);
         vco3.setFreq(880.0);           // Third osc for AM / harmonic fattening
         filter.setCutoff(1400.0);
-        filter.setRes(2.5);            // Can go high for dramatic volume drop / self-osc
+        filter.setRes(2.8);            // Can go high for dramatic Oberon character
         filter.setMode(0);             // Default LP
         preamp = 1.0;
     }
@@ -167,9 +166,9 @@ private:
 int main() {
     CRBOberon oberon;
     oberon.noteOn(220.0);                  // Low note to show ladder character
-    oberon.setPreamp(2.2);                 // Drive into the limiter
-    oberon.setFilterMode(0);               // LP mode
-    oberon.setFilterRes(4.5);              // High resonance for dramatic Oberon character
+    oberon.setPreamp(2.2);                 // Drive into the limiter for glue
+    oberon.setFilterMode(0);               // LP mode (classic subtractive)
+    oberon.setFilterRes(5.5);              // High resonance for dramatic Oberon ladder behavior
     
     std::ofstream wav("crb_oberon_ladder_test.wav", std::ios::binary);
     for (int i = 0; i < 44100 * 4; ++i) {  // ~4 seconds
@@ -182,6 +181,6 @@ int main() {
     std::cout << "CRB Oberon emulation with Oberon Filter Ladder generated.\n"
               << "Features: Triple osc + AM, 4-stage ladder core (LP/HP/All-Pass modes),\n"
               << "amsynth log/exp limiter + Preamp for warm glue.\n"
-              << "Perfect core for ARP-OBERON 2608 hybrid (ARP left provides modulation sources).\n";
+              << "Ready as right-side core for ARP-OBERON 2608 hybrid.\n";
     return 0;
 }

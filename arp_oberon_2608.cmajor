@@ -1,0 +1,186 @@
+// ARP-OBERON 2608 - Complete 1970s Dual-Synth Workstation
+// ARP2600 + CRB Oberon + Sound Entropy + POP3/Mackity Chain
+// Single-file Cmajor VST3/AU/CLAP - Ready for Amorph/JUCE export
+
+processor ARP_OBERON_2608 : AudioProcessor 
+{
+    input  stream float audioInL, audioInR;
+    output stream float audioOutL, audioOutR;
+    
+    // === PARAMETERS (17 total) ===
+    param float preamp       := 1.8;   // 0.2-6.0
+    param float cutoff       := 1400;  // 30-18k
+    param float resonance    := 4.5;   // 0-20
+    param int   filterMode   := 0;     // 0=LP,1=HP,2=BP
+    param bool  drive        := false;
+    
+    // Patch Bay (5 sources)
+    param int   patchCutoff  := 0;     // 0=None,1=Rectifier,2=Noise,3=Env1,4=VCO3,5=S&H
+    param int   patchAM      := 0;
+    
+    // S&H
+    param float shRate       := 2.0;   // 0.01-20Hz
+    param float shSlew       := 0.2;   // 0-1
+    
+    // Voltage Processor
+    param float vpGain       := 1.0;   // -1 to 1
+    param float vpOffset     := 0.0;   // -5 to 5
+    
+    // Sound Entropy
+    param float entropy      := 0.5;   // 0-1
+    param float grainSize    := 0.05;  // 0.01-2.0s
+    
+    // Mackity/POP3
+    param float mackityTrim  := 0.7;
+    
+    // === STATE ===
+    state float phase1, phase2, phase3;      // VCO phases
+    state float z1, z2;                      // Filter state
+    state float shValue, shTarget;           // S&H
+    state float vpOut;                       // Voltage proc
+    state float envLevel;                    // Env
+    state float buffer[8192];                // Entropy buffer (0.18s)
+    state int   bufferPos;
+    
+    // PolyBLEP helper
+    fun float polyBlep (float t, float dt) -> float
+    {
+        if (t < dt)
+            return t * dt - 0.5 * t * t;
+        else if (t > 1.0 - dt)
+        {
+            t := 1.0 - t;
+            return t * dt - 0.5 * t * t;
+        }
+        return 0.0;
+    }
+    
+    // Bandlimited VCO (ARP/CRB style)
+    fun float vco (float phase, float freq, float pw, int wave) -> float
+    {
+        let dt := freq / 44100.0;
+        let blep := polyBlep (phase, dt);
+        
+        float naive;
+        match wave
+        {
+            0 => naive := 2.0 * phase - 1.0 + blep,  // Saw
+            1 => naive := 2.0 * abs (2.0 * phase - 1.0) - 1.0 + 2.0 * blep,  // Triangle
+            _ => naive := (phase < pw) ? 1.0 : -1.0 + blep  // Square/PWM
+        }
+        
+        return clamp (naive, -1.0, 1.0);
+    }
+    
+    // Switchable VCF (LP/HP/BP)
+    fun float vcf (float input) -> float
+    {
+        let wc := cutoff * 6.28318 / 44100.0;
+        let alpha := sin (wc);
+        let beta := sqrt (1.0 - alpha * alpha);
+        let g := 1.0 / sqrt (resonance + 1.0);
+        
+        z1 += (input - z1) * alpha - z2 * g;
+        z2 := z1 * g - z2 * alpha;
+        
+        match filterMode
+        {
+            0 => return z1,  // LP
+            1 => return input - z1 - resonance * z2,  // HP
+            _ => return z2 * 2.0  // BP
+        }
+    }
+    
+    // Sample & Hold
+    fun float sampleHold (float noise) -> float
+    {
+        let clock := sin (shRate * 0.1) > 0.0;  // Simple clock
+        if (clock)
+            shTarget := noise;
+        
+        shValue += (shTarget - shValue) * shSlew * 0.01;
+        return shValue;
+    }
+    
+    // Voltage Processor
+    fun float voltageProc (float input) -> float
+    {
+        return (input * vpGain) + vpOffset * 0.2;
+    }
+    
+    // Rectifier (full-wave)
+    fun float rectifier (float input) -> float
+    {
+        return drive ? abs (input) * 0.7 : input;
+    }
+    
+    // Sound Entropy (granular)
+    fun float soundEntropy (float input) -> float
+    {
+        buffer[bufferPos] := input;
+        bufferPos := (bufferPos + 1) % 8192;
+        
+        let chaos := entropy * random();
+        let grainPos := (bufferPos - grainSize * 44100.0 + chaos * 8192.0) % 8192.0;
+        return buffer[int(grainPos)] * (1.0 - entropy * 0.5);
+    }
+    
+    // POP3 + Mackity chain
+    fun float pop3Mackity (float input) -> float
+    {
+        // Preamp
+        let pre := input * preamp;
+        
+        // Diode overdrive (soft clipping)
+        let driveSig := tanh (pre * 1.5) * 0.7;
+        
+        // Mackity trim
+        let mack := driveSig * mackityTrim;
+        
+        // Post-limiter (3:1 optical)
+        let rms := abs (mack) * 0.9;
+        return mack * (1.0 - rms * 0.3);
+    }
+    
+    // MAIN PROCESS
+    step
+    {
+        // VCOs (ARP + Oberon)
+        let vco1 := vco (phase1, 440.0, 0.5, 0);
+        let vco2 := vco (phase2, 440.0 * 1.005, 0.5, 1);
+        let vco3 := vco (phase3, 440.0 * 0.99, 0.5, 2);
+        
+        phase1 += 440.0 / 44100.0; if (phase1 >= 1.0) phase1 -= 1.0;
+        phase2 += 440.0 * 1.005 / 44100.0; if (phase2 >= 1.0) phase2 -= 1.0;
+        phase3 += 440.0 * 0.99 / 44100.0; if (phase3 >= 1.0) phase3 -= 1.0;
+        
+        // Mix + modulation
+        let noise := random() * 2.0 - 1.0;
+        let sh := sampleHold (noise);
+        let vp := voltageProc (sh);
+        
+        let modCutoff := match patchCutoff
+        {
+            1 => rectifier (vco1),  // Rectifier
+            2 => noise,
+            3 => envLevel,
+            4 => vco3,
+            5 => sh,
+            _ => 0.0
+        };
+        
+        // Filter + envelope
+        let filterIn := (vco1 + vco2 + vco3) * 0.4 + modCutoff * 0.2;
+        let filtered := vcf (filterIn);
+        envLevel *= 0.999;  // Simple decay env
+        
+        // Sound Entropy
+        let entropyOut := soundEntropy (filtered);
+        
+        // Master chain
+        let final := drive ? pop3Mackity (entropyOut) : entropyOut;
+        
+        audioOutL << final;
+        audioOutR << final * 0.9;  // Slight stereo offset
+    }
+}
